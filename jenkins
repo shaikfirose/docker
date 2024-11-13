@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+    environment {
+        AWS_REGION = 'ap-south-1'
+        AWS_CREDENTIALS_ID = 'your-aws-credentials-id'  // Replace with your Jenkins AWS credentials ID
+    }
+    parameters {
+        string(name: 'action', defaultValue: 'plan', description: 'Specify Terraform action (plan or apply)')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Terraform Init') {
+            steps {
+                sh 'terraform init -reconfigure'
+            }
+        }
+
+        stage('Terraform Plan') {
+            when {
+                expression { params.action == 'plan' }
+            }
+            steps {
+                sh 'terraform plan -out=tfplan'
+            }
+        }
+
+        stage('Terraform Apply') {
+            when {
+                expression { params.action == 'apply' }
+            }
+            steps {
+                sh 'terraform apply -auto-approve tfplan'
+            }
+        }
+
+        stage('Upload HTML to S3') {
+            when {
+                expression { params.action == 'apply' }  // Only upload if 'apply' action is chosen
+            }
+            steps {
+                script {
+                    // Get bucket name from Terraform output
+                    def bucketName = sh(script: 'terraform output -raw bucket_name', returnStdout: true).trim()
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                        sh "aws s3 cp index.html s3://${bucketName}/index.html --acl public-read"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
