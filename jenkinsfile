@@ -1,9 +1,6 @@
 pipeline {
     agent any
-    environment {
-        AWS_REGION = 'ap-south-1'
-        AWS_CREDENTIALS_ID = 'AKIAYAKVNZFHM5LHRFUK'  // Replace with your Jenkins AWS credentials ID
-    }
+   
     parameters {
         string(name: 'action', defaultValue: 'plan', description: 'Specify Terraform action (plan or apply)')
     }
